@@ -381,4 +381,5 @@ class BasicDoc(object):
 
     @staticmethod
     def hash_file(path):
-        return hashlib.sha256(open(path, 'rb').read()).hexdigest()
+        dochash = hashlib.sha256(open(path, 'rb').read()).hexdigest()
+        return int(dochash, 16)
