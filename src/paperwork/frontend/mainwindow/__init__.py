@@ -2043,9 +2043,10 @@ class ActionRealQuit(SimpleAction):
     """
     Quit
     """
-    def __init__(self, main_window, config):
+    def __init__(self, main_window, main_loop, config):
         SimpleAction.__init__(self, "Quit (real)")
         self.__main_win = main_window
+        self.__main_loop = main_loop
         self.__config = config
 
     def do(self):
@@ -2055,7 +2056,7 @@ class ActionRealQuit(SimpleAction):
             scheduler.stop()
 
         self.__config.write()
-        Gtk.main_quit()
+        self.__main_loop.quit()
 
     def on_window_close_cb(self, window):
         self.do()
@@ -2139,7 +2140,7 @@ class ActionEditPage(SimpleAction):
 
 
 class MainWindow(object):
-    def __init__(self, config):
+    def __init__(self, main_loop, config):
         GLib.set_application_name(_("Paperwork"))
         GLib.set_prgname("paperwork")
 
@@ -2728,7 +2729,7 @@ class MainWindow(object):
             "drag-data-received", self.__on_match_list_drag_data_received_cb)
 
         self.window.connect("destroy",
-                            ActionRealQuit(self, config).on_window_close_cb)
+                            ActionRealQuit(self, main_loop, config).on_window_close_cb)
 
         self.img['viewport']['widget'].connect("size-allocate",
                                                self.__on_img_resize_cb)
@@ -3215,8 +3216,8 @@ class MainWindow(object):
         if doc.nb_pages > 0:
             self.show_page(doc.pages[0])
         else:
-            self.img['image'].set_from_stock(Gtk.STOCK_MISSING_IMAGE,
-                                             Gtk.IconSize.DIALOG)
+            # TODO
+            pass
 
     def on_export_preview_start(self):
         self.export['estimated_size'].set_text(_("Computing ..."))

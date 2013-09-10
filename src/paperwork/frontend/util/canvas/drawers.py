@@ -1,4 +1,8 @@
+from gi.repository import Clutter
+from gi.repository import Cogl
+
 from paperwork.backend.util import image2surface
+from paperwork.frontend.util.img import image2pixbuf
 
 
 class Drawer(object):
@@ -14,6 +18,7 @@ class Drawer(object):
 
     position = (0, 0)  # (x, y)
     size = (0, 0)  # (width, height)
+    visible = False  # to update in upd_actors()
 
     def __init__(self):
         pass
@@ -21,38 +26,37 @@ class Drawer(object):
     def set_canvas(self, canvas):
         pass
 
-    def do_draw(self, cairo_context, offset, size):
+    def upd_actors(self, clutter_stage, offset, visible_area_size):
         """
         Arguments:
             offset --- Position of the area in which to draw:
                        (offset_x, offset_y)
-            size --- Size of the area in which to draw: (width, height) = size
+            visible_area_size --- Size of the area in which to draw: (width, height) = size
         """
         assert()
-
-    def draw(self, cairo_context, offset, visible_size):
-        # don't bother drawing if it's not visible
-        if offset[0] + visible_size[0] < self.position[0]:
-            return
-        if offset[1] + visible_size[1] < self.position[1]:
-            return
-        if self.position[0] + self.size[0] < offset[0]:
-            return
-        if self.position[1] + self.size[1] < offset[1]:
-            return
-        self.do_draw(cairo_context, offset, visible_size)
 
 
 class BackgroundDrawer(Drawer):
     layer = Drawer.BACKGROUND_LAYER
+    visible = True  # always visible
 
     def __init__(self, rgb):
         self.rgb = rgb
         self.canvas = None
         self.position = (0, 0)
 
+        color = Clutter.Color.new(int(rgb[0] * 255),
+                                  int(rgb[1] * 255),
+                                  int(rgb[2] * 255),
+                                  255)
+        self.rectangle = Clutter.Rectangle()
+        self.rectangle.set_color(color)
+        self.rectangle.set_size(100, 100)
+        self.rectangle.set_position(0, 0)
+
     def set_canvas(self, canvas):
         self.canvas = canvas
+        self.canvas.get_stage().add_actor(self.rectangle)
 
     def __get_size(self):
         assert(self.canvas is not None)
@@ -60,11 +64,9 @@ class BackgroundDrawer(Drawer):
 
     size = property(__get_size)
 
-    def do_draw(self, cairo_context, offset, size):
-        cairo_context.set_source_rgb(self.rgb[0], self.rgb[1], self.rgb[2])
-        cairo_context.rectangle(0, 0, size[0], size[1])
-        cairo_context.clip()
-        cairo_context.paint()
+    def upd_actors(self, clutter_stage, offset, visible_area_size):
+        self.rectangle.set_size(visible_area_size[0],
+                                visible_area_size[1])
 
 
 class PillowImageDrawer(Drawer):
@@ -73,21 +75,34 @@ class PillowImageDrawer(Drawer):
     def __init__(self, position, image):
         self.size = image.size
         self.position = position
-        self.surface = image2surface(image)
+        self.visible = False
 
-    def do_draw(self, cairo_context, offset, size):
-        img_offset = (max(0, offset[0] - self.position[0]),
-                      max(0, offset[1] - self.position[1]))
-        target_offset = (max(0, self.position[0] - offset[0]),
-                         max(0, self.position[1] - offset[1]))
+        pixbuf = image2pixbuf(image)
+        fmt = Cogl.PixelFormat.RGB_888
+        if pixbuf.get_has_alpha():
+            fmt = Cogl.PixelFormat.RGB_8888
 
-        size = (min(size[0] - target_offset[0], self.size[0]),
-                min(size[1] - target_offset[1], self.size[1]))
+        self.img = Clutter.Image()
+        self.img.set_data(pixbuf.get_pixels(), fmt,
+                          pixbuf.get_width(), pixbuf.get_height(),
+                          pixbuf.get_rowstride())
 
-        cairo_context.set_source_surface(self.surface,
-                                         (-1 * (img_offset[0])) + target_offset[0],
-                                         (-1 * (img_offset[1])) + target_offset[1])
-        cairo_context.rectangle(target_offset[0], target_offset[1],
-                                size[0], size[1])
-        cairo_context.clip()
-        cairo_context.paint()
+        self.actor = Clutter.Actor()
+        self.actor.set_content_scaling_filters(Clutter.ScalingFilter.TRILINEAR,
+                                               Clutter.ScalingFilter.LINEAR)
+        self.actor.set_size(self.size[0], self.size[1])
+        self.actor.set_content(self.img)
+        self.actor.set_position(position[0], position[1])
+
+    def upd_actors(self, clutter_stage, offset, visible_area_size):
+        # TODO(Jflesch): Figure out if the actor is visible
+        should_be_visible = True
+
+        self.actor.set_position(self.position[0] - offset[0],
+                                self.position[1] - offset[1])
+
+        if should_be_visible and not self.visible:
+            clutter_stage.add_actor(self.actor)
+        elif not should_be_visible and self.visible:
+            clutter_stage.remove_actor(self.actor)
+        self.visible = should_be_visible

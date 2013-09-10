@@ -11,15 +11,17 @@ Here are the elements that must drawn on it:
 import heapq
 import sys
 
+from gi.repository import Clutter
 from gi.repository import GObject
 from gi.repository import Gdk
 from gi.repository import Gtk
+from gi.repository import GtkClutter
 
 from paperwork.backend.util import image2surface
 from paperwork.frontend.util import PriorityQueue
 
 
-class Canvas(Gtk.DrawingArea, Gtk.Scrollable):
+class Canvas(GtkClutter.Embed, Gtk.Scrollable):
     """
     The main canvas is where page(s) are drawn. This is the biggest and most
     important part of the main window.
@@ -38,7 +40,7 @@ class Canvas(Gtk.DrawingArea, Gtk.Scrollable):
                                       flags=GObject.PARAM_READWRITE)
 
     def __init__(self, hadj, vadj):
-        Gtk.DrawingArea.__init__(self)
+        GtkClutter.Embed.__init__(self)
 
         self.full_size_x = 0
         self.full_size_y = 0
@@ -51,7 +53,6 @@ class Canvas(Gtk.DrawingArea, Gtk.Scrollable):
         self.set_vadjustment(vadj)
 
         self.connect("size-allocate", self.__on_size_allocate)
-        self.connect("draw", self.__on_draw)
 
         self.set_size_request(-1, -1)
 
@@ -82,13 +83,13 @@ class Canvas(Gtk.DrawingArea, Gtk.Scrollable):
         v.connect("value-changed", self.__on_adjustment_changed)
 
     def __on_adjustment_changed(self, adjustment):
-        self.queue_draw()
+        self.upd_actors()
 
     def __on_size_allocate(self, _, size_allocate):
         self.visible_size_x = size_allocate.width
         self.visible_size_y = size_allocate.height
         self.upd_adjustments()
-        self.queue_draw()
+        self.upd_actors()
 
     def upd_adjustments(self):
         self.hadjustment.set_upper(float(self.full_size_x))
@@ -96,17 +97,13 @@ class Canvas(Gtk.DrawingArea, Gtk.Scrollable):
         self.hadjustment.set_page_size(self.visible_size_x)
         self.vadjustment.set_page_size(self.visible_size_y)
 
-    def __on_draw(self, _, cairo_ctx):
+    def upd_actors(self):
         x = int(self.hadjustment.get_value())
         y = int(self.vadjustment.get_value())
 
         for drawer in self.drawers:
-            cairo_ctx.save()
-            try:
-                drawer.draw(cairo_ctx, (x, y),
-                            (self.visible_size_x, self.visible_size_y))
-            finally:
-                cairo_ctx.restore()
+            drawer.upd_actors(self.get_stage(), (x, y),
+                              (self.visible_size_x, self.visible_size_y))
 
     def add_drawer(self, drawer):
         drawer.set_canvas(self)
@@ -127,7 +124,7 @@ class Canvas(Gtk.DrawingArea, Gtk.Scrollable):
 
         self.drawers.add(drawer.layer, drawer)
 
-        self.queue_draw()
+        self.upd_actors()
 
 
 GObject.type_register(Canvas)

@@ -24,6 +24,7 @@ import gettext
 import logging
 from gi.repository import GObject
 from gi.repository import Gtk
+from gi.repository import GtkClutter
 import locale
 
 import pyinsane.abstract_th  # Just to start the Sane thread
@@ -87,14 +88,18 @@ def main():
     set_locale()
 
     GObject.threads_init()
+    GtkClutter.init([])
 
     try:
         config = PaperworkConfig()
         config.read()
 
-        main_win = MainWindow(config)
+        loop = GObject.MainLoop()
+
+        main_win = MainWindow(loop, config)
         ActionRefreshIndex(main_win, config).do()
-        Gtk.main()
+
+        loop.run()
     finally:
         logger.info("Good bye")
 
