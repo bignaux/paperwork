@@ -2291,6 +2291,8 @@ class MainWindow(object):
         img_widget.set_visible(True)
         img_scrollbars.add(img_widget)
 
+        img_widget.add_drawer(BackgroundDrawer((1.0, 0.0, 1.0)))
+
         test_img = PIL.Image.open(
             "/home/jflesch/SparkleShare/papers/20110312_0000_01/paper.1.jpg")
 
