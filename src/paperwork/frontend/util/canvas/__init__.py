@@ -42,10 +42,8 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
     def __init__(self, hadj, vadj):
         GtkClutter.Embed.__init__(self)
 
-        self.full_size_x = 1
-        self.full_size_y = 1
-        self.visible_size_x = 1
-        self.visible_size_y = 1
+        self.full_size = (1, 1)
+        self.visible_size = (1, 1)
 
         self.drawers = PriorityQueue()
 
@@ -65,7 +63,7 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         Gtk.Scrollable.set_hadjustment(self, h)
         self.set_property("hadjustment", h)
         h.set_lower(0.0)
-        h.set_upper(float(self.full_size_x))
+        h.set_upper(float(self.full_size[0]))
         h.set_step_increment(10.0)
         h.set_page_increment(100.0)  # TODO(Jflesch)
         h.set_page_size(0.0)
@@ -78,7 +76,7 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         Gtk.Scrollable.set_vadjustment(self, v)
         self.set_property("vadjustment", v)
         v.set_lower(0.0)
-        v.set_upper(float(self.full_size_y))
+        v.set_upper(float(self.full_size[1]))
         v.set_step_increment(10.0)
         v.set_page_increment(100.0)  # TODO(Jflesch)
         v.set_page_size(0.0)
@@ -88,16 +86,22 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         self.upd_actors()
 
     def __on_size_allocate(self, _, size_allocate):
-        self.visible_size_x = size_allocate.width
-        self.visible_size_y = size_allocate.height
+        self.visible_size = (size_allocate.width, size_allocate.height)
+        self.upd_adjustments()
+        self.upd_actors()
+
+    def set_size(self, size):
+        size = (int(size[0]), int(size[1]))
+        self.full_size = size
+        self.set_size_request(size[0], size[1])
         self.upd_adjustments()
         self.upd_actors()
 
     def upd_adjustments(self):
-        self.hadjustment.set_upper(float(self.full_size_x))
-        self.vadjustment.set_upper(float(self.full_size_y))
-        self.hadjustment.set_page_size(self.visible_size_x)
-        self.vadjustment.set_page_size(self.visible_size_y)
+        self.hadjustment.set_upper(float(self.full_size[0]))
+        self.vadjustment.set_upper(float(self.full_size[1]))
+        self.hadjustment.set_page_size(self.visible_size[0])
+        self.vadjustment.set_page_size(self.visible_size[1])
 
     def upd_actors(self):
         x = int(self.hadjustment.get_value())
@@ -105,7 +109,7 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
 
         for drawer in self.drawers:
             drawer.upd_actors(self.get_stage(), (x, y),
-                              (self.visible_size_x, self.visible_size_y))
+                              self.visible_size)
 
     def add_drawer(self, drawer):
         drawer.set_canvas(self)
@@ -114,14 +118,16 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         y = drawer.position[1] + drawer.size[1]
 
         full_size_changed = False
-        if (x > self.full_size_x):
-            self.full_size_x = x
+        (full_x, full_y) = self.full_size
+        if (x > self.full_size[0]):
+            full_x = x
             full_size_changed = True
-        if (y > self.full_size_y):
-            self.full_size_y = y
+        if (y > self.full_size[1]):
+            full_y = y
             full_size_changed = True
         if full_size_changed:
-            self.set_size_request(self.full_size_x, self.full_size_y)
+            self.full_size = (full_x, full_y)
+            self.set_size_request(full_x, full_y)
             self.upd_adjustments()
 
         self.drawers.add(drawer.layer, drawer)

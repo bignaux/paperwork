@@ -60,7 +60,7 @@ class BackgroundDrawer(Drawer):
 
     def __get_size(self):
         assert(self.canvas is not None)
-        return (self.canvas.full_size_x, self.canvas.full_size_y)
+        return (self.canvas.full_size[0], self.canvas.full_size[1])
 
     size = property(__get_size)
 

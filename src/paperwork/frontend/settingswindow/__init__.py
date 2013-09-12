@@ -226,6 +226,8 @@ class JobCalibrationScan(Job):
                                    ()),
         'calibration-scan-info': (GObject.SignalFlags.RUN_LAST, None,
                                   (
+                                      # expected width
+                                      GObject.TYPE_INT,
                                       # expected height
                                       GObject.TYPE_INT,
                                   )),
@@ -291,9 +293,8 @@ class JobCalibrationScan(Job):
         maximize_scan_area(dev)
 
         scan_session = dev.scan(multiple=False)
-        expected_height = scan_session.scan.expected_size[1]
-        if expected_height > 0:
-            self.emit('calibration-scan-info', expected_height)
+        size = scan_session.scan.expected_size
+        self.emit('calibration-scan-info', size[0], size[1])
 
         last_line = 0
         try:
@@ -330,8 +331,8 @@ class JobFactoryCalibrationScan(JobFactory):
                     lambda job:
                     GLib.idle_add(self.__settings_win.on_scan_start))
         job.connect('calibration-scan-info',
-                    lambda job, height:
-                    GLib.idle_add(self.__settings_win.on_scan_info, height))
+                    lambda job, width, height:
+                    GLib.idle_add(self.__settings_win.on_scan_info, width, height))
         job.connect('calibration-scan-chunk',
                     lambda job, line, img:
                     GLib.idle_add(self.__settings_win.on_scan_chunk,
@@ -550,6 +551,10 @@ class SettingsWindow(GObject.GObject):
         img_gui = Canvas(img_scrollbars.get_hadjustment(),
                          img_scrollbars.get_vadjustment())
         img_gui.set_visible(True)
+
+        img_bg = BackgroundDrawer((1.0, 0.0, 1.0))
+        img_gui.add_drawer(img_bg)
+
         img_scrollbars.add(img_gui)
 
         self.calibration = {
@@ -703,8 +708,10 @@ class SettingsWindow(GObject.GObject):
         self.schedulers['progress'].schedule(self.__scan_progress_job)
         self.calibration['image_height'] = -1
 
-    def on_scan_info(self, height):
+    def on_scan_info(self, width, height):
         self.calibration['image_height'] = height
+        self.calibration['image_gui'].set_size(
+            self.calibration['image_gui'].visible_size)
 
     def on_scan_chunk(self, line, chunk):
         if self.calibration['image_height'] <= 0:
@@ -712,9 +719,9 @@ class SettingsWindow(GObject.GObject):
 
         factor = min(
             1.0,
-            float(self.calibration['image_gui'].visible_size_x) / chunk.size[0],
-            (float(self.calibration['image_gui'].visible_size_y)
-             / self.calibration['image_height'])
+            float(self.calibration['image_gui'].visible_size[0]) / chunk.size[0],
+            float(self.calibration['image_gui'].visible_size[1])
+            / self.calibration['image_height'],
         )
         drawer = PillowImageDrawer((0, line * factor), chunk)
         drawer.size = ((chunk.size[0] * factor,
