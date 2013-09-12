@@ -552,9 +552,6 @@ class SettingsWindow(GObject.GObject):
                          img_scrollbars.get_vadjustment())
         img_gui.set_visible(True)
 
-        img_bg = BackgroundDrawer((1.0, 0.0, 1.0))
-        img_gui.add_drawer(img_bg)
-
         img_scrollbars.add(img_gui)
 
         self.calibration = {
@@ -737,9 +734,9 @@ class SettingsWindow(GObject.GObject):
         self.calibration['resolution'] = scan_resolution
         self.progressbar.set_fraction(0.0)
 
+        self.calibration['image_gui'].unforce_size()
+        self.calibration['image_gui'].remove_all_drawers()
         self.grips = ImgGripHandler(self.calibration['image'],
-                                    self.calibration['image_scrollbars'],
-                                    None,
                                     self.calibration['image_gui'])
         self.grips.visible = True
         self.set_mouse_cursor("Normal")
