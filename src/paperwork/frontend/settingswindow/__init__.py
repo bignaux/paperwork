@@ -224,6 +224,11 @@ class JobCalibrationScan(Job):
     __gsignals__ = {
         'calibration-scan-start': (GObject.SignalFlags.RUN_LAST, None,
                                    ()),
+        'calibration-scan-info': (GObject.SignalFlags.RUN_LAST, None,
+                                  (
+                                      # expected height
+                                      GObject.TYPE_INT,
+                                  )),
         'calibration-scan-chunk': (GObject.SignalFlags.RUN_LAST, None,
                                    # line where to put the image
                                    (GObject.TYPE_INT,
@@ -284,7 +289,11 @@ class JobCalibrationScan(Job):
         else:
             logger.warn("WARNING: Unable to set scanner mode ! May be 'Lineart'")
         maximize_scan_area(dev)
+
         scan_session = dev.scan(multiple=False)
+        expected_height = scan_session.scan.expected_size[1]
+        if expected_height > 0:
+            self.emit('calibration-scan-info', expected_height)
 
         last_line = 0
         try:
@@ -320,6 +329,9 @@ class JobFactoryCalibrationScan(JobFactory):
         job.connect('calibration-scan-start',
                     lambda job:
                     GLib.idle_add(self.__settings_win.on_scan_start))
+        job.connect('calibration-scan-info',
+                    lambda job, height:
+                    GLib.idle_add(self.__settings_win.on_scan_info, height))
         job.connect('calibration-scan-chunk',
                     lambda job, line, img:
                     GLib.idle_add(self.__settings_win.on_scan_chunk,
@@ -547,6 +559,7 @@ class SettingsWindow(GObject.GObject):
             "image_scrollbars": img_scrollbars,
             "resolution":
             PaperworkConfig.DEFAULT_CALIBRATION_RESOLUTION,
+            "image_height": 0,
         }
 
         self.grips = None
@@ -688,9 +701,24 @@ class SettingsWindow(GObject.GObject):
             value_min=0.0, value_max=1.0,
             total_time=self.__config.scan_time['calibration'])
         self.schedulers['progress'].schedule(self.__scan_progress_job)
+        self.calibration['image_height'] = -1
+
+    def on_scan_info(self, height):
+        self.calibration['image_height'] = height
 
     def on_scan_chunk(self, line, chunk):
-        drawer = PillowImageDrawer((0, line), chunk)
+        if self.calibration['image_height'] <= 0:
+            return
+
+        factor = min(
+            1.0,
+            float(self.calibration['image_gui'].visible_size_x) / chunk.size[0],
+            (float(self.calibration['image_gui'].visible_size_y)
+             / self.calibration['image_height'])
+        )
+        drawer = PillowImageDrawer((0, line * factor), chunk)
+        drawer.size = ((chunk.size[0] * factor,
+                        chunk.size[1] * factor))
         self.calibration['image_gui'].add_drawer(drawer)
 
     def on_scan_done(self, img, scan_resolution):
