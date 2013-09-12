@@ -42,17 +42,19 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
     def __init__(self, hadj, vadj):
         GtkClutter.Embed.__init__(self)
 
-        self.full_size_x = 0
-        self.full_size_y = 0
-        self.visible_size_x = 0
-        self.visible_size_y = 0
+        self.full_size_x = 1
+        self.full_size_y = 1
+        self.visible_size_x = 1
+        self.visible_size_y = 1
 
         self.drawers = PriorityQueue()
 
         self.set_hadjustment(hadj)
         self.set_vadjustment(vadj)
 
+        self.add_events(Gdk.EventMask.SCROLL_MASK)
         self.connect("size-allocate", self.__on_size_allocate)
+        self.connect("scroll-event", self.__on_scroll_event)
 
         self.set_size_request(-1, -1)
 
@@ -125,6 +127,37 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         self.drawers.add(drawer.layer, drawer)
 
         self.upd_actors()
+
+    def __on_scroll_event(self, _, event):
+        ops = {
+            Gdk.ScrollDirection.UP:
+            lambda h, v: (0, v.get_step_increment()),
+            Gdk.ScrollDirection.DOWN:
+            lambda h, v: (0, -1 * v.get_step_increment()),
+            Gdk.ScrollDirection.RIGHT:
+            lambda h, v: (h.get_step_incremented(), 0),
+            Gdk.ScrollDirection.LEFT:
+            lambda h, v: (-1 * h.get_step_increment(), 0),
+        }
+
+        if not event.direction in ops:
+            return
+
+        ops = ops[event.direction]
+        ops = ops(self.hadjustment, self.vadjustment)
+
+        for (op, adj) in [
+                (ops[0], self.hadjustment),
+                (ops[1], self.vadjustment)
+            ]:
+            val = adj.get_value()
+            val += op
+            if val < adj.get_lower():
+                val = adj.get_lower()
+            if val >= adj.get_upper():
+                val = adj.get_upper() - 1
+            if val != adj.get_value():
+                adj.set_value(val)
 
 
 GObject.type_register(Canvas)
