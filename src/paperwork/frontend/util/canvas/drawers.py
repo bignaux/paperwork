@@ -73,7 +73,7 @@ class PillowImageDrawer(Drawer):
     layer = Drawer.IMG_LAYER
 
     def __init__(self, position, image):
-        self.size = image.size
+        self.max_size = image.size
         self.position = position
         self.visible = False
 
@@ -90,13 +90,35 @@ class PillowImageDrawer(Drawer):
         self.actor = Clutter.Actor()
         self.actor.set_content_scaling_filters(Clutter.ScalingFilter.TRILINEAR,
                                                Clutter.ScalingFilter.LINEAR)
-        self.actor.set_size(self.size[0], self.size[1])
+        self.actor.set_size(self.max_size[0], self.max_size[1])
         self.actor.set_content(self.img)
         self.actor.set_position(position[0], position[1])
 
+    def set_canvas(self, canvas):
+        self.canvas = canvas
+
+    def __get_size(self):
+        return self.actor.get_size()
+
+    def __set_size(self, size):
+        self.actor.set_size(size[0], size[1])
+
+    size = property(__get_size, __set_size)
+
     def upd_actors(self, clutter_stage, offset, visible_area_size):
-        # TODO(Jflesch): Figure out if the actor is visible
+        assert(self.canvas)
+
+        size = self.size
+
         should_be_visible = True
+        if (self.position[0] + size[0] < offset[0]):
+            should_be_visible = False
+        elif (offset[0] + visible_area_size[0] < self.position[0]):
+            should_be_visible = False
+        elif (self.position[1] + size[1] < offset[1]):
+            should_be_visible = False
+        elif (offset[1] + visible_area_size[1] < self.position[1]):
+            should_be_visible = False
 
         self.actor.set_position(self.position[0] - offset[0],
                                 self.position[1] - offset[1])
