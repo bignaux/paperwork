@@ -70,10 +70,31 @@ class ImgGripHandler(GObject.GObject):
 
         self.img_widget = img_widget
         self.img = img
-        self.factor = 1.0  # TODO
 
         img_size = img.size
-        self.__grips = (
+
+        factor = min(
+            1.0,
+            float(self.img_widget.visible_size[0]) / img_size[0],
+            float(self.img_widget.visible_size[1]) / img_size[1],
+        )
+
+        self.img_sizes = [
+            (factor, (int(factor * img_size[0]), int(factor * img_size[1]))),
+            (1.0, (int(img_size[0]), int(img_size[1]))),
+        ]
+
+        self.img_drawer = PillowImageDrawer((0, 0), self.img)
+        self.img_drawer.size = self.img_sizes[0][1]
+
+        self.img_widget.remove_all_drawers()
+        self.img_widget.add_drawer(self.img_drawer)
+        self.img_widget.set_size(self.img_sizes[0][1])
+
+        self.img_widget = img_widget
+        self.img = img
+        img_size = img.size
+        self.grips = (
             ImgGrip(0, 0),
             ImgGrip(img_size[0], img_size[1]))
         self.selected = None  # the grip being moved
@@ -85,35 +106,45 @@ class ImgGripHandler(GObject.GObject):
         }
 
         img_widget.connect("size-allocate",
-                           lambda widget, size:
-                           GLib.idle_add(self.__on_size_allocate_cb,
-                                         widget, size))
+                           lambda _, size:
+                           GLib.idle_add(self.__on_size_allocate_cb, size))
+        img_widget.connect("absolute-button-press-event",
+                           lambda _, event:
+                           GLib.idle_add(self.__on_mouse_button_pressed_cb,
+                                         event))
+        img_widget.connect("absolute-motion-notify-event",
+                           lambda _, event:
+                           GLib.idle_add(self.__on_mouse_motion_cb, event))
+        img_widget.connect("absolute-button-release-event",
+                           lambda _, event:
+                           GLib.idle_add(self.__on_mouse_button_released_cb,
+                                         event))
         self.__last_cursor_pos = None  # relative to the image size
 
-    def __on_mouse_button_pressed_cb(self, widget, event):
+    def __on_mouse_button_pressed_cb(self, event):
         if not self.__visible:
             return
 
-        (mouse_x, mouse_y) = event.get_coords()
+        (mouse_x, mouse_y) = (event.x, event.y)
 
         self.selected = None
-        for grip in self.__grips:
-            if grip.is_on_grip((mouse_x, mouse_y), self.factor):
+        for grip in self.grips:
+            if grip.is_on_grip((mouse_x, mouse_y), self.img_sizes[0][0]):
                 self.selected = grip
                 break
 
-    def __on_mouse_motion_cb(self, widget, event):
+    def __on_mouse_motion_cb(self, event):
         if not self.__visible:
             return
 
-        (mouse_x, mouse_y) = event.get_coords()
+        (mouse_x, mouse_y) = (event.x, event.y)
 
         if self.selected:
             is_on_grip = True
         else:
             is_on_grip = False
-            for grip in self.__grips:
-                if grip.is_on_grip((mouse_x, mouse_y), self.factor):
+            for grip in self.grips:
+                if grip.is_on_grip((mouse_x, mouse_y), self.img_sizes[0][0]):
                     is_on_grip = True
                     break
 
@@ -132,11 +163,11 @@ class ImgGripHandler(GObject.GObject):
         if not self.selected:
             return None
 
-        new_x = mouse_x / self.factor
-        new_y = mouse_y / self.factor
+        new_x = mouse_x / self.img_sizes[0][0]
+        new_y = mouse_y / self.img_sizes[0][0]
         self.selected.position = (new_x, new_y)
 
-    def __on_mouse_button_released_cb(self, widget, event):
+    def __on_mouse_button_released_cb(self, event):
         if self.selected:
             if not self.__visible:
                 return
@@ -144,13 +175,16 @@ class ImgGripHandler(GObject.GObject):
             self.selected = None
         else:
             # figure out the cursor position on the image
-            (mouse_x, mouse_y) = event.get_coords()
-            # TODO
+            (mouse_x, mouse_y) = (event.x, event.y)
+            img_size = self.img_sizes.pop(0)
+            self.img_sizes.append(img_size)
+            self.img_drawer.size = self.img_sizes[0][1]
+            self.img_widget.set_size(self.img_sizes[0][1])
+            self.img_widget.upd_actors()
 
-        GLib.idle_add(self.redraw)
         self.emit('grip-moved')
 
-    def __on_size_allocate_cb(self, viewport, new_size):
+    def __on_size_allocate_cb(self, new_size):
         # TODO
         pass
 
@@ -165,10 +199,10 @@ class ImgGripHandler(GObject.GObject):
     visible = property(__get_visible, __set_visible)
 
     def get_coords(self):
-        return ((int(self.__grips[0].position[0]),
-                 int(self.__grips[0].position[1])),
-                (int(self.__grips[1].position[0]),
-                 int(self.__grips[1].position[1])))
+        return ((int(self.grips[0].position[0]),
+                 int(self.grips[0].position[1])),
+                (int(self.grips[1].position[0]),
+                 int(self.grips[1].position[1])))
 
 
 GObject.type_register(ImgGripHandler)
