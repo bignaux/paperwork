@@ -71,29 +71,15 @@ class ImgGripHandler(GObject.GObject):
         self.img_widget = img_widget
         self.img = img
 
-        img_size = img.size
-
-        factor = min(
-            1.0,
-            float(self.img_widget.visible_size[0]) / img_size[0],
-            float(self.img_widget.visible_size[1]) / img_size[1],
-        )
-
-        self.img_sizes = [
-            (factor, (int(factor * img_size[0]), int(factor * img_size[1]))),
-            (1.0, (int(img_size[0]), int(img_size[1]))),
-        ]
-
         self.img_drawer = PillowImageDrawer((0, 0), self.img)
-        self.img_drawer.size = self.img_sizes[0][1]
-
+        self.__on_size_allocate(self.img_widget.visible_size)
         self.img_widget.remove_all_drawers()
         self.img_widget.add_drawer(self.img_drawer)
-        self.img_widget.set_size(self.img_sizes[0][1])
+        self.img_widget.set_size((-1, -1))
 
         self.img_widget = img_widget
         self.img = img
-        img_size = img.size
+        img_size = self.img.size
         self.grips = (
             ImgGrip(0, 0),
             ImgGrip(img_size[0], img_size[1]))
@@ -184,9 +170,24 @@ class ImgGripHandler(GObject.GObject):
 
         self.emit('grip-moved')
 
+    def __on_size_allocate(self, new_size):
+        img_size = self.img.size
+
+        factor = min(
+            1.0,
+            float(new_size[0]) / img_size[0],
+            float(new_size[1]) / img_size[1],
+        )
+        self.img_sizes = [
+            (factor, (int(factor * img_size[0]),
+                      int(factor * img_size[1]))),
+            (1.0, (int(img_size[0]), int(img_size[1]))),
+        ]
+        self.img_drawer.size = self.img_sizes[0][1]
+
     def __on_size_allocate_cb(self, new_size):
+        self.__on_size_allocate((new_size.x, new_size.y))
         # TODO
-        pass
 
     def __get_visible(self):
         return self.__visible
