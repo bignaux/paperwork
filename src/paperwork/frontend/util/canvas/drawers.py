@@ -35,6 +35,9 @@ class Drawer(object):
         """
         assert()
 
+    def hide(self, canvas):
+        pass
+
 
 class BackgroundDrawer(Drawer):
     layer = Drawer.BACKGROUND_LAYER
@@ -56,7 +59,7 @@ class BackgroundDrawer(Drawer):
 
     def set_canvas(self, canvas):
         self.canvas = canvas
-        self.canvas.get_stage().add_actor(self.rectangle)
+        self.canvas.get_stage().add_child(self.rectangle)
 
     def __get_size(self):
         assert(self.canvas is not None)
@@ -68,13 +71,16 @@ class BackgroundDrawer(Drawer):
         self.rectangle.set_size(visible_area_size[0],
                                 visible_area_size[1])
 
+    def hide(self, stage):
+        stage.remove_child(self.rectangle)
+
 
 class PillowImageDrawer(Drawer):
     layer = Drawer.IMG_LAYER
 
     def __init__(self, position, image):
-        self.max_size = image.size
         self.position = position
+        self.max_size = image.size
         self.visible = False
 
         pixbuf = image2pixbuf(image)
@@ -94,20 +100,15 @@ class PillowImageDrawer(Drawer):
         self.actor.set_content(self.img)
         self.actor.set_position(position[0], position[1])
 
-    def set_canvas(self, canvas):
-        self.canvas = canvas
-
     def __get_size(self):
         return self.actor.get_size()
 
     def __set_size(self, size):
-        self.actor.set_size(size[0], size[1])
+        self.actor.set_size(int(size[0]), int(size[1]))
 
     size = property(__get_size, __set_size)
 
     def upd_actors(self, clutter_stage, offset, visible_area_size):
-        assert(self.canvas)
-
         size = self.size
 
         should_be_visible = True
@@ -120,11 +121,17 @@ class PillowImageDrawer(Drawer):
         elif (offset[1] + visible_area_size[1] < self.position[1]):
             should_be_visible = False
 
-        self.actor.set_position(self.position[0] - offset[0],
-                                self.position[1] - offset[1])
+        pos_x = self.position[0] - offset[0]
+        pos_y = self.position[1] - offset[1]
 
         if should_be_visible and not self.visible:
-            clutter_stage.add_actor(self.actor)
+            clutter_stage.add_child(self.actor)
         elif not should_be_visible and self.visible:
-            clutter_stage.remove_actor(self.actor)
+            clutter_stage.remove_child(self.actor)
         self.visible = should_be_visible
+        self.actor.set_position(int(pos_x), int(pos_y))
+
+    def hide(self, stage):
+        if self.visible:
+            stage.remove_child(self.actor)
+        self.visible = False
