@@ -71,12 +71,28 @@ class ImgGripHandler(GObject.GObject):
         self.img_widget = img_widget
         self.img = img
 
+        img_size = self.img.size
+
+        visible_size = self.img_widget.visible_size
+
+        factor = min(
+            1.0,
+            float(visible_size[0]) / img_size[0],
+            float(visible_size[1]) / img_size[1],
+        )
+        self.img_sizes = [
+            (factor, (int(factor * img_size[0]),
+                      int(factor * img_size[1]))),
+            (1.0, (int(img_size[0]), int(img_size[1]))),
+        ]
+
         self.img_drawer = PillowImageDrawer((0, 0), self.img)
-        self.__on_size_allocate(self.img_widget.visible_size)
+        self.img_drawer.size = self.img_sizes[0][1]
+
         self.img_widget.remove_all_drawers()
         self.img_widget.add_drawer(self.img_drawer)
         self.img_widget.upd_actors()
-        self.img_widget.recompute_size()
+        self.img_widget.set_size(self.img_sizes[0][1])
 
         self.img_widget = img_widget
         self.img = img
@@ -92,9 +108,6 @@ class ImgGripHandler(GObject.GObject):
             'on_grip': Gdk.Cursor.new(Gdk.CursorType.TCROSS)
         }
 
-        img_widget.connect("size-allocate",
-                           lambda _, size:
-                           GLib.idle_add(self.__on_size_allocate_cb, size))
         img_widget.connect("absolute-button-press-event",
                            lambda _, event:
                            GLib.idle_add(self.__on_mouse_button_pressed_cb,
@@ -169,31 +182,6 @@ class ImgGripHandler(GObject.GObject):
             self.img_widget.upd_actors()
 
         self.emit('grip-moved')
-
-    def __on_size_allocate(self, new_size):
-        assert(new_size[0] > 0)
-        assert(new_size[1] > 0)
-
-        img_size = self.img.size
-
-        factor = min(
-            1.0,
-            float(new_size[0]) / img_size[0],
-            float(new_size[1]) / img_size[1],
-        )
-        self.img_sizes = [
-            (factor, (int(factor * img_size[0]),
-                      int(factor * img_size[1]))),
-            (1.0, (int(img_size[0]), int(img_size[1]))),
-        ]
-        assert(self.img_sizes[0][1][0] > 0)
-        assert(self.img_sizes[0][1][1] > 0)
-        self.img_drawer.size = self.img_sizes[0][1]
-        self.img_widget.upd_actors()
-
-    def __on_size_allocate_cb(self, new_size):
-        self.__on_size_allocate((new_size.x, new_size.y))
-        # TODO
 
     def __get_visible(self):
         return self.__visible
