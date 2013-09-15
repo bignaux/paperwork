@@ -723,6 +723,7 @@ class SettingsWindow(GObject.GObject):
         drawer.size = ((chunk.size[0] * factor,
                         chunk.size[1] * factor))
         self.calibration['image_gui'].add_drawer(drawer)
+        self.calibration['image_gui'].upd_actors()
 
     def on_scan_done(self, img, scan_resolution):
         scan_stop = time.time()

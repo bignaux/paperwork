@@ -71,8 +71,6 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         self.connect("motion-notify-event", self.__on_motion)
         self.connect("button-release-event", self.__on_button_released)
 
-        self.set_size_request(-1, -1)
-
     def get_hadjustment(self):
         return self.hadjustment
 
@@ -168,19 +166,15 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         y = drawer.position[1] + drawer.size[1]
 
         self.drawers.add(drawer.layer, drawer)
-        self.recompute_size()
-        self.upd_actors()
 
     def remove_drawer(self, drawer):
         drawer.hide(self.get_stage())
         self.drawers.remove(drawer)
-        self.recompute_size()
 
     def remove_all_drawers(self):
         for drawer in self.drawers:
             drawer.hide(self.get_stage())
         self.drawers.purge()
-        self.recompute_size()
 
     def __on_scroll_event(self, _, event):
         ops = {
