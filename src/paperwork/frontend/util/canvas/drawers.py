@@ -104,7 +104,7 @@ class PillowImageDrawer(Drawer):
         return self.actor.get_size()
 
     def __set_size(self, size):
-        self.actor.set_size(int(size[0]), int(size[1]))
+        self.actor.set_size(size[0], size[1])
 
     size = property(__get_size, __set_size)
 
@@ -129,7 +129,7 @@ class PillowImageDrawer(Drawer):
         elif not should_be_visible and self.visible:
             clutter_stage.remove_child(self.actor)
         self.visible = should_be_visible
-        self.actor.set_position(int(pos_x), int(pos_y))
+        self.actor.set_position(pos_x, pos_y)
 
     def hide(self, stage):
         if self.visible:

@@ -179,6 +179,7 @@ class ImgGripHandler(GObject.GObject):
             img_size = self.img_sizes.pop(0)
             self.img_sizes.append(img_size)
             self.img_drawer.size = self.img_sizes[0][1]
+            self.img_widget.set_size(self.img_sizes[0][1])
             self.img_widget.upd_actors()
 
         self.emit('grip-moved')
