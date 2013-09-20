@@ -120,14 +120,14 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         if (new_size[0] != self.full_size[0]
             or new_size[1] != self.full_size[1]):
             self.full_size = new_size
-            self.set_size_request(new_size[0], new_size[1])
+            self.set_size_request(10000, 10000)
             self.upd_adjustments()
 
     def set_size(self, size):
         size = (int(size[0]), int(size[1]))
         self.full_size = size
         self.size_forced = True
-        self.set_size_request(size[0], size[1])
+        self.set_size_request(10000, 10000)
         self.upd_adjustments()
         self.upd_actors()
 
