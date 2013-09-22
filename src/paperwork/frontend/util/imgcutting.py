@@ -261,6 +261,31 @@ class ImgGripHandler(GObject.GObject):
             self.__move_grip(event)
             self.grip_drawer.redraw()
 
+    def __switch_zoom_level(self):
+        img_size = self.img_sizes.pop(0)
+        self.img_sizes.append(img_size)
+        self.img_drawer.size = self.img_sizes[0][1]
+        self.grip_drawer.set_size(self.img_sizes[0][1])
+        self.img_widget.set_size(self.img_sizes[0][1])
+        return img_size
+
+    def __scroll(self, old_img_size, event):
+        self.img_widget.upd_adjustments()
+
+        (pos_x, pos_y) = (event.x, event.y)
+        ratio_x = float(pos_x) / old_img_size[1][0]
+        ratio_y = float(pos_y) / old_img_size[1][1]
+
+        adjustements = [
+            (self.img_widget.get_hadjustment(), ratio_x),
+            (self.img_widget.get_vadjustment(), ratio_y),
+        ]
+        for (adjustment, val) in adjustements:
+            upper = adjustment.get_upper() - adjustment.get_page_size()
+            lower = adjustment.get_lower()
+            val = (val * (upper - lower)) + lower
+            adjustment.set_value(int(val))
+
     def __on_mouse_button_released_cb(self, event):
         if self.selected:
             if not self.__visible:
@@ -269,12 +294,9 @@ class ImgGripHandler(GObject.GObject):
             self.selected = None
         else:
             # figure out the cursor position on the image
-            (mouse_x, mouse_y) = (event.x, event.y)
-            img_size = self.img_sizes.pop(0)
-            self.img_sizes.append(img_size)
-            self.img_drawer.size = self.img_sizes[0][1]
-            self.grip_drawer.set_size(self.img_sizes[0][1])
-            self.img_widget.set_size(self.img_sizes[0][1])
+            old_img_size = self.__switch_zoom_level()
+            self.img_widget.upd_adjustments()
+            self.__scroll(old_img_size, event)
             self.img_widget.upd_actors()
 
         self.emit('grip-moved')

@@ -88,7 +88,7 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         h.connect("value-changed", self.__on_adjustment_changed)
 
     def get_vadjustment(self):
-        return self.hadjustment
+        return self.vadjustment
 
     def set_vadjustment(self, v):
         Gtk.Scrollable.set_vadjustment(self, v)
@@ -145,6 +145,8 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
             val_h = self.full_size[0]
         if val_v > self.full_size[1]:
             val_v = self.full_size[1]
+        self.hadjustment.set_lower(0.0)
+        self.hadjustment.set_upper(0.0)
         self.hadjustment.set_upper(float(self.full_size[0]))
         self.vadjustment.set_upper(float(self.full_size[1]))
         self.hadjustment.set_page_size(self.visible_size[0])
