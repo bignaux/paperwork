@@ -1,8 +1,7 @@
 from gi.repository import Clutter
 from gi.repository import Cogl
 
-from paperwork.backend.util import image2surface
-from paperwork.frontend.util.img import image2pixbuf
+from paperwork.frontend.util.img import image2clutter_img
 
 
 class Drawer(object):
@@ -75,30 +74,11 @@ class BackgroundDrawer(Drawer):
         stage.remove_child(self.rectangle)
 
 
-class PillowImageDrawer(Drawer):
-    layer = Drawer.IMG_LAYER
-
-    def __init__(self, position, image):
+class SimpleDrawer(Drawer):
+    def __init__(self, position):
         self.position = position
-        self.max_size = image.size
         self.visible = False
-
-        pixbuf = image2pixbuf(image)
-        fmt = Cogl.PixelFormat.RGB_888
-        if pixbuf.get_has_alpha():
-            fmt = Cogl.PixelFormat.RGB_8888
-
-        self.img = Clutter.Image()
-        self.img.set_data(pixbuf.get_pixels(), fmt,
-                          pixbuf.get_width(), pixbuf.get_height(),
-                          pixbuf.get_rowstride())
-
-        self.actor = Clutter.Actor()
-        self.actor.set_content_scaling_filters(Clutter.ScalingFilter.TRILINEAR,
-                                               Clutter.ScalingFilter.LINEAR)
-        self.actor.set_size(self.max_size[0], self.max_size[1])
-        self.actor.set_content(self.img)
-        self.actor.set_position(position[0], position[1])
+        self.actor = Clutter.Actor()  # must be filled in by child classes
 
     def __get_size(self):
         return self.actor.get_size()
@@ -135,3 +115,52 @@ class PillowImageDrawer(Drawer):
         if self.visible:
             stage.remove_child(self.actor)
         self.visible = False
+
+
+class PillowImageDrawer(SimpleDrawer):
+    layer = Drawer.IMG_LAYER
+
+    def __init__(self, position, image):
+        SimpleDrawer.__init__(self, position)
+
+        self.img = image2clutter_img(image)
+
+        self.actor.set_content_scaling_filters(Clutter.ScalingFilter.TRILINEAR,
+                                               Clutter.ScalingFilter.LINEAR)
+        self.actor.set_size(image.size[0], image.size[1])
+        self.actor.set_content(self.img)
+        self.actor.set_position(position[0], position[1])
+
+
+class ScanDrawer(SimpleDrawer):
+    layer = Drawer.IMG_LAYER
+
+    def __init__(self, position, expected_total_size, wanted_size):
+        SimpleDrawer.__init__(self, position)
+        self.canvas = None
+
+        self.last_add = 0
+        self.factor = min(
+            1.0,
+            float(wanted_size[0]) / expected_total_size[0],
+            float(wanted_size[1]) / expected_total_size[1],
+        )
+
+        self.size = wanted_size
+
+    def set_canvas(self, canvas):
+        self.canvas = canvas
+
+    def add_chunk(self, pil_img):
+        img = image2clutter_img(pil_img)
+        actor = Clutter.Actor()
+        actor.set_content_scaling_filters(Clutter.ScalingFilter.TRILINEAR,
+                                          Clutter.ScalingFilter.LINEAR)
+        actor.set_size(int(self.factor * pil_img.size[0]),
+                       int(self.factor * pil_img.size[1]))
+
+        actor.set_position(0, self.last_add)
+        actor.set_content(img)
+
+        self.last_add += actor.get_size()[1]
+        self.actor.add_child(actor)

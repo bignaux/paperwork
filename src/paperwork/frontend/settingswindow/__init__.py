@@ -38,7 +38,7 @@ from paperwork.frontend.util import load_uifile
 from paperwork.frontend.util.actions import SimpleAction
 from paperwork.frontend.util.canvas import Canvas
 from paperwork.frontend.util.canvas.drawers import BackgroundDrawer
-from paperwork.frontend.util.canvas.drawers import PillowImageDrawer
+from paperwork.frontend.util.canvas.drawers import ScanDrawer
 from paperwork.frontend.util.imgcutting import ImgGripHandler
 from paperwork.frontend.util.jobs import Job, JobFactory, JobScheduler
 from paperwork.frontend.util.jobs import JobFactoryProgressUpdater
@@ -555,12 +555,12 @@ class SettingsWindow(GObject.GObject):
 
         self.calibration = {
             "scan_button": widget_tree.get_object("buttonScanCalibration"),
+            "scan_drawer": None,
             "image_gui": img_gui,
             "image": [],  # array of tuples: (resize factor, PIL image)
             "image_scrollbars": img_scrollbars,
             "resolution":
             PaperworkConfig.DEFAULT_CALIBRATION_RESOLUTION,
-            "image_height": 0,
         }
 
         self.grips = None
@@ -702,29 +702,24 @@ class SettingsWindow(GObject.GObject):
             value_min=0.0, value_max=1.0,
             total_time=self.__config.scan_time['calibration'])
         self.schedulers['progress'].schedule(self.__scan_progress_job)
-        self.calibration['image_height'] = -1
-        self.calibration['image_gui'].remove_all_drawers()
-
-    def on_scan_info(self, width, height):
-        self.calibration['image_height'] = height
         self.calibration['image_gui'].set_size(
             self.calibration['image_gui'].visible_size)
+        self.calibration['image_gui'].remove_all_drawers()
+        self.calibration['scan_drawer'] = None
+
+    def on_scan_info(self, width, height):
+        self.calibration['scan_drawer'] = ScanDrawer(
+            (0, 0),
+            (width, height),
+            self.calibration['image_gui'].visible_size)
+        self.calibration['image_gui'].add_drawer(
+            self.calibration['scan_drawer'])
+        self.calibration['image_gui'].upd_actors()
 
     def on_scan_chunk(self, line, chunk):
-        if self.calibration['image_height'] <= 0:
+        if self.calibration['scan_drawer'] is None:
             return
-
-        factor = min(
-            1.0,
-            float(self.calibration['image_gui'].visible_size[0]) / chunk.size[0],
-            float(self.calibration['image_gui'].visible_size[1])
-            / self.calibration['image_height'],
-        )
-        drawer = PillowImageDrawer((0, line * factor), chunk)
-        drawer.size = ((chunk.size[0] * factor,
-                        chunk.size[1] * factor))
-        self.calibration['image_gui'].add_drawer(drawer)
-        self.calibration['image_gui'].upd_actors()
+        self.calibration['scan_drawer'].add_chunk(chunk)
 
     def on_scan_done(self, img, scan_resolution):
         scan_stop = time.time()
@@ -737,6 +732,7 @@ class SettingsWindow(GObject.GObject):
 
         self.calibration['image_gui'].unforce_size()
         self.calibration['image_gui'].remove_all_drawers()
+        self.calibration['scan_drawer'] = None
         self.grips = ImgGripHandler(self.calibration['image'],
                                     self.calibration['image_gui'])
         self.grips.visible = True

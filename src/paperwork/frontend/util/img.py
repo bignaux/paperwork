@@ -1,5 +1,7 @@
 import StringIO
 
+from gi.repository import Clutter
+from gi.repository import Cogl
 from gi.repository import GdkPixbuf
 import PIL.ImageDraw
 
@@ -36,3 +38,23 @@ def image2pixbuf(img):
     finally:
         loader.close()
     return pixbuf
+
+
+def pixbuf2clutter_img(pixbuf):
+    fmt = Cogl.PixelFormat.RGB_888
+    if pixbuf.get_has_alpha():
+        fmt = Cogl.PixelFormat.RGB_8888
+
+    img = Clutter.Image()
+    img.set_data(pixbuf.get_pixels(), fmt,
+                 pixbuf.get_width(), pixbuf.get_height(),
+                 pixbuf.get_rowstride())
+    return img
+
+
+def image2clutter_img(img):
+    # TODO(Jflesch): OPTIM
+    # I think we can skip the image2pixbuf part
+    pixbuf = image2pixbuf(img)
+    clutter_img = pixbuf2clutter_img(pixbuf)
+    return clutter_img
