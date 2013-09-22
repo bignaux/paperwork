@@ -43,42 +43,6 @@ class Drawer(object):
         pass
 
 
-class BackgroundDrawer(Drawer):
-    layer = Drawer.BACKGROUND_LAYER
-    visible = True  # always visible
-
-    def __init__(self, rgb):
-        self.rgb = rgb
-        self.canvas = None
-        self.position = (0, 0)
-
-        color = Clutter.Color.new(int(rgb[0] * 255),
-                                  int(rgb[1] * 255),
-                                  int(rgb[2] * 255),
-                                  255)
-        self.rectangle = Clutter.Rectangle()
-        self.rectangle.set_color(color)
-        self.rectangle.set_size(100, 100)
-        self.rectangle.set_position(0, 0)
-
-    def set_canvas(self, canvas):
-        self.canvas = canvas
-        self.canvas.get_stage().add_child(self.rectangle)
-
-    def __get_size(self):
-        assert(self.canvas is not None)
-        return (self.canvas.full_size[0], self.canvas.full_size[1])
-
-    size = property(__get_size)
-
-    def upd_actors(self, clutter_stage, offset, visible_area_size):
-        self.rectangle.set_size(visible_area_size[0],
-                                visible_area_size[1])
-
-    def hide(self, stage):
-        stage.remove_child(self.rectangle)
-
-
 class SimpleDrawer(Drawer):
     def __init__(self, position):
         self.position = position

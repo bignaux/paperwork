@@ -20,7 +20,6 @@ from gi.repository import Gdk
 from gi.repository import GLib
 from gi.repository import GObject
 
-from paperwork.frontend.util.canvas.drawers import BackgroundDrawer
 from paperwork.frontend.util.canvas.drawers import PillowImageDrawer
 
 
