@@ -254,6 +254,14 @@ modules = [
          'suse': 'python-cairo',
      },
     ),
+
+    ('Clutter', 'gi.repository.GtkClutter',
+     {
+         'debian': 'gir1.2-gtkclutter-1.0',
+         'fedora': 'clutter-gtk',
+         'ubuntu': 'gir1.2-gtkclutter-1.0',
+     }
+    ),
 ]
 
 for module in modules:
