@@ -703,6 +703,7 @@ class SettingsWindow(GObject.GObject):
             total_time=self.__config.scan_time['calibration'])
         self.schedulers['progress'].schedule(self.__scan_progress_job)
         self.calibration['image_height'] = -1
+        self.calibration['image_gui'].remove_all_drawers()
 
     def on_scan_info(self, width, height):
         self.calibration['image_height'] = height
