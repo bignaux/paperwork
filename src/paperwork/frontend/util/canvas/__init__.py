@@ -56,6 +56,9 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         self.full_size = (1, 1)
         self.visible_size = (1, 1)
 
+        self.get_stage().set_background_color(
+            Clutter.Color.get_static(Clutter.StaticColor.LIGHT_GRAY))
+
         self.drawers = PriorityQueue()
 
         self.set_hadjustment(hadj)
@@ -176,6 +179,10 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
             drawer.hide(self.get_stage())
         self.get_stage().remove_all_children()
         self.drawers.purge()
+
+    def set_background(self, rgb_int):
+        self.get_stage().set_background_color(
+            Clutter.Color.new(rgb_int[0], rgb_int[1], rgb_int[2], 255))
 
     def __on_scroll_event(self, _, event):
         ops = {
