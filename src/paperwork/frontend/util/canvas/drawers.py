@@ -106,11 +106,10 @@ class ScanDrawer(SimpleDrawer):
 
     ANIM_HEIGHT = 5
     ANIM_FPS = 27
-    ANIM_LENGTH = 1.5  # seconds
+    ANIM_LENGTH = 1.0  # seconds
 
     def __init__(self, position, expected_total_size, wanted_size):
         SimpleDrawer.__init__(self, position)
-        self.canvas = None
         self._visible = False
 
         self.last_add = 0
@@ -143,9 +142,6 @@ class ScanDrawer(SimpleDrawer):
 
         self.actor.add_child(self.anim['actor'])
 
-    def set_canvas(self, canvas):
-        self.canvas = canvas
-
     def _draw_anim(self, _, cairo_ctx, width, height):
         cairo_ctx.save()
         try:
@@ -158,12 +154,13 @@ class ScanDrawer(SimpleDrawer):
             cairo_ctx.save()
             try:
                 cairo_ctx.set_operator(cairo.OPERATOR_OVER)
-                cairo_ctx.set_source_rgb(1.0, 0.0, 0.0)
+                cairo_ctx.set_source_rgb(0.5, 0.0, 0.0)
                 cairo_ctx.set_line_width(1.0)
                 cairo_ctx.move_to(0, self.ANIM_HEIGHT / 2)
                 cairo_ctx.line_to(self.size[1], self.ANIM_HEIGHT / 2)
                 cairo_ctx.stroke()
 
+                cairo_ctx.set_source_rgb(1.0, 0.0, 0.0)
                 cairo_ctx.arc(self.anim['position'],
                               float(self.ANIM_HEIGHT) / 2,
                               float(self.ANIM_HEIGHT) / 2,
