@@ -172,6 +172,8 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         self.drawers.remove(drawer)
 
     def remove_all_drawers(self):
+        for drawer in self.drawers:
+            drawer.hide(self.get_stage())
         self.get_stage().remove_all_children()
         self.drawers.purge()
 

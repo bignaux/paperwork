@@ -112,3 +112,12 @@ class PriorityQueue(object):
 
     def __iter__(self):
         return PriorityQueueIter(self.elements)
+
+
+def gen_float_range(vstart, vend, interval):
+    r = []
+    v = vstart
+    while min(vstart, vend) <= v and v <= max(vstart, vend):
+        r += [v]
+        v += interval
+    return r

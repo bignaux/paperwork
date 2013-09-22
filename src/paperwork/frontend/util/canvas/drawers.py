@@ -1,6 +1,11 @@
+import math
+
+import cairo
 from gi.repository import Clutter
 from gi.repository import Cogl
+from gi.repository import GLib
 
+from paperwork.frontend.util import gen_float_range
 from paperwork.frontend.util.img import image2clutter_img
 
 
@@ -135,9 +140,14 @@ class PillowImageDrawer(SimpleDrawer):
 class ScanDrawer(SimpleDrawer):
     layer = Drawer.IMG_LAYER
 
+    ANIM_HEIGHT = 5
+    ANIM_FPS = 27
+    ANIM_LENGTH = 1.5  # seconds
+
     def __init__(self, position, expected_total_size, wanted_size):
         SimpleDrawer.__init__(self, position)
         self.canvas = None
+        self._visible = False
 
         self.last_add = 0
         self.factor = min(
@@ -146,10 +156,83 @@ class ScanDrawer(SimpleDrawer):
             float(wanted_size[1]) / expected_total_size[1],
         )
 
-        self.size = wanted_size
+        self.size = (
+            (expected_total_size[0] * self.factor),
+            (expected_total_size[1] * self.factor) + (self.ANIM_HEIGHT/2),
+        )
+
+        self.anim = {
+            "position": 0,
+            "interval": 1000 / self.ANIM_FPS,
+            "offset": float(wanted_size[1]) / self.ANIM_FPS / self.ANIM_LENGTH,
+            "content": Clutter.Canvas(),
+            "actor": Clutter.Actor(),
+        }
+
+        self.anim['content'].set_size(self.size[0], self.ANIM_HEIGHT)
+        self.anim['actor'].set_size(self.size[0], self.ANIM_HEIGHT)
+        self.anim['actor'].set_position(0, -1 * (self.ANIM_HEIGHT / 2))
+        self.anim['actor'].set_background_color(
+            Clutter.Color.new(0, 0, 0, 0))
+        self.anim['content'].connect("draw", self._draw_anim)
+        self.anim['actor'].set_content(self.anim['content'])
+
+        self.actor.add_child(self.anim['actor'])
 
     def set_canvas(self, canvas):
         self.canvas = canvas
+
+    def _draw_anim(self, _, cairo_ctx, width, height):
+        cairo_ctx.save()
+        try:
+            cairo_ctx.set_operator(cairo.OPERATOR_CLEAR)
+            cairo_ctx.paint()
+        finally:
+            cairo_ctx.restore()
+
+        if self.last_add > 0:
+            cairo_ctx.save()
+            try:
+                cairo_ctx.set_operator(cairo.OPERATOR_OVER)
+                cairo_ctx.set_source_rgb(1.0, 0.0, 0.0)
+                cairo_ctx.set_line_width(1.0)
+                cairo_ctx.move_to(0, self.ANIM_HEIGHT / 2)
+                cairo_ctx.line_to(self.size[1], self.ANIM_HEIGHT / 2)
+                cairo_ctx.stroke()
+
+                cairo_ctx.arc(self.anim['position'],
+                              float(self.ANIM_HEIGHT) / 2,
+                              float(self.ANIM_HEIGHT) / 2,
+                              0.0, math.pi * 2)
+                cairo_ctx.stroke()
+
+            finally:
+                cairo_ctx.restore()
+
+    def _upd_anim(self, _=None):
+        if not self._visible:
+            return False
+
+        self.anim['position'] += self.anim['offset']
+        if self.anim['position'] < 0 or self.anim['position'] >= self.size[0]:
+            self.anim['position'] = max(0, self.anim['position'])
+            self.anim['position'] = min(self.size[0], self.anim['position'])
+            self.anim['offset'] *= -1
+
+        self.anim['content'].invalidate()
+        return True
+
+    def __get_visible(self):
+        return self._visible
+
+    def __set_visible(self, visible):
+        if visible and not self._visible:
+            Clutter.threads_add_timeout(GLib.PRIORITY_LOW,
+                                        self.anim['interval'],
+                                        self._upd_anim, None)
+        self._visible = visible
+
+    visible = property(__get_visible, __set_visible)
 
     def add_chunk(self, pil_img):
         img = image2clutter_img(pil_img)
@@ -163,4 +246,6 @@ class ScanDrawer(SimpleDrawer):
         actor.set_content(img)
 
         self.last_add += actor.get_size()[1]
-        self.actor.add_child(actor)
+        self.anim['actor'].set_position(
+            0, self.last_add - (self.ANIM_HEIGHT/2))
+        self.actor.insert_child_below(actor, self.anim['actor'])
