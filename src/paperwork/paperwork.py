@@ -19,6 +19,7 @@ Bootstrapping code
 """
 
 import os
+import sys
 
 import gettext
 import logging
@@ -88,7 +89,7 @@ def main():
     set_locale()
 
     GObject.threads_init()
-    GtkClutter.init([])
+    GtkClutter.init(sys.argv)
 
     try:
         config = PaperworkConfig()
