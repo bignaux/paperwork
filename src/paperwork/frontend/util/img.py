@@ -53,8 +53,17 @@ def pixbuf2clutter_img(pixbuf):
 
 
 def image2clutter_img(img):
-    # TODO(Jflesch): OPTIM
-    # I think we can skip the image2pixbuf part
-    pixbuf = image2pixbuf(img)
-    clutter_img = pixbuf2clutter_img(pixbuf)
+    if img.mode == "RGB":
+        fmt = Cogl.PixelFormat.RGB_888
+        row_stride = 3 * img.size[0]
+    elif img.mode == "RGBA":
+        fmt = Cogl.PixelFormat.RGB_8888
+        row_stride = 4 * img.size[0]
+    else:
+        raise Exception("Unsupported image mode: %s" % img.mode)
+
+    clutter_img = Clutter.Image()
+    clutter_img.set_data(img.tobytes(), fmt,
+                         img.size[0], img.size[1],
+                         row_stride)
     return clutter_img
