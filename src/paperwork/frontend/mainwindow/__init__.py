@@ -36,6 +36,9 @@ import pyinsane.abstract_th as pyinsane
 from paperwork.frontend.aboutdialog import AboutDialog
 from paperwork.frontend.doceditdialog import DocEditDialog
 from paperwork.frontend.labeleditor import LabelEditor
+from paperwork.frontend.mainwindow.page import JobPageLoader
+from paperwork.frontend.mainwindow.page import JobFactoryPageLoader
+from paperwork.frontend.mainwindow.page import PageDrawer
 from paperwork.frontend.multiscan import MultiscanDialog
 from paperwork.frontend.pageeditor import PageEditingDialog
 from paperwork.frontend.settingswindow import SettingsWindow
@@ -48,13 +51,16 @@ from paperwork.frontend.util.img import add_img_border
 from paperwork.frontend.util.img import image2pixbuf
 from paperwork.frontend.util.canvas import Canvas
 from paperwork.frontend.util.canvas.drawers import PillowImageDrawer
-from paperwork.frontend.util.jobs import Job, JobFactory, JobScheduler
+from paperwork.frontend.util.jobs import Job
+from paperwork.frontend.util.jobs import JobFactory
+from paperwork.frontend.util.jobs import JobScheduler
 from paperwork.frontend.util.jobs import JobFactoryProgressUpdater
 from paperwork.frontend.util.progressivelist import ProgressiveList
 from paperwork.frontend.util.renderer import CellRendererLabels
 from paperwork.frontend.util.scanner import set_scanner_opt
 from paperwork.backend import docimport
-from paperwork.backend.common.page import BasicPage, DummyPage
+from paperwork.backend.common.page import BasicPage
+from paperwork.backend.common.page import DummyPage
 from paperwork.backend.docsearch import DocSearch
 from paperwork.backend.docsearch import DummyDocSearch
 from paperwork.backend.img.doc import ImgDoc
@@ -1202,7 +1208,7 @@ class ActionOpenSelectedDocument(SimpleAction):
         doc = self.__main_win.lists['matches']['model'][doc_idx][2]
 
         logger.info("Showing doc %s" % doc)
-        self.__main_win.show_doc(doc_idx, doc)
+        self.__main_win.show_doc(doc)
 
 
 class ActionStartSearch(SimpleAction):
@@ -1338,19 +1344,14 @@ class ActionOpenPageNb(SimpleAction):
         self.__main_win.show_page(page)
 
 
-class ActionRebuildPage(SimpleAction):
+class ActionReloadDoc(SimpleAction):
     def __init__(self, main_window):
         SimpleAction.__init__(self, "Reload current page")
         self.__main_win = main_window
 
     def do(self):
         SimpleAction.do(self)
-        # TODO(Jflesch)
-        #self.__main_win.schedulers['main'].cancel_all(
-        #    self.__main_win.job_factories['img_builder'])
-        #job = self.__main_win.job_factories['img_builder'].make(
-        #    self.__main_win.page)
-        #self.__main_win.schedulers['main'].schedule(job)
+        self.__main_win.show_doc(self.__main_win.doc, force_refresh=True)
 
 
 class ActionRefreshBoxes(SimpleAction):
@@ -1948,7 +1949,8 @@ class ActionZoomChange(SimpleAction):
         zoom_list.append((99999.0, -1))
         zoom_list.sort()
 
-        current_zoom = self.__main_win.get_zoom_factor()
+        current_zoom = self.__main_win.get_zoom_factor(
+            self.__main_win.page.img.size)
 
         # figures out where the current zoom fits in the zoom list
         current_idx = -1
@@ -1998,6 +2000,7 @@ class ActionZoomSet(SimpleAction):
         assert(new_idx >= 0)
 
         self.__main_win.lists['zoom_levels']['gui'].set_active(new_idx)
+        self.__main_win.show_doc(self.__main_win.doc, force_refresh=True)
 
 
 class ActionEditDoc(SimpleAction):
@@ -2218,7 +2221,7 @@ class MainWindow(object):
         # All the pages are displayed on the canvas,
         # however, only one is the "active one"
         self.page = DummyPage(self.doc)
-        self.pages = [self.page]
+        self.pages = []
 
         search_completion = Gtk.EntryCompletion()
 
@@ -2289,8 +2292,7 @@ class MainWindow(object):
         }
 
         img_scrollbars = widget_tree.get_object("scrolledwindowPageImg")
-        img_widget = Canvas(img_scrollbars.get_hadjustment(),
-                            img_scrollbars.get_vadjustment())
+        img_widget = Canvas(img_scrollbars)
         img_widget.set_visible(True)
         img_scrollbars.add(img_widget)
 
@@ -2300,7 +2302,7 @@ class MainWindow(object):
         # selected in the page list (and the page number is up-to-date)
 
         self.img = {
-            "image": img_widget,
+            "canvas": img_widget,
             "scrollbar": img_scrollbars,
             "viewport": {
                 "widget": img_widget,
@@ -2309,7 +2311,6 @@ class MainWindow(object):
             "eventbox": widget_tree.get_object("eventboxImg"),
             "pixbuf": None,
             "factor": 1.0,
-            "original_width": 1,
             "boxes": {
                 'all': [],
                 'visible': [],
@@ -2406,6 +2407,7 @@ class MainWindow(object):
             'ocr_redoer': JobFactoryOCRRedoer(self, config),
             'page_editor': JobFactoryPageEditor(self, config),
             'page_list': self.lists['pages'].job_factory,
+            'page_loader': JobFactoryPageLoader(),
             'page_thumbnailer': JobFactoryPageThumbnailer(self),
             'progress_updater': JobFactoryProgressUpdater(
                 self.status['progress']),
@@ -2588,7 +2590,7 @@ class MainWindow(object):
                 [
                     widget_tree.get_object("comboboxZoom"),
                 ],
-                ActionRebuildPage(self)
+                ActionReloadDoc(self)
             ),
             'search': (
                 [
@@ -2909,8 +2911,6 @@ class MainWindow(object):
     def on_import_start(self, src):
         self.set_progression(src, 0.0, _("Importing ..."))
         self.set_mouse_cursor("Busy")
-        self.img['image'].set_from_stock(Gtk.STOCK_EXECUTE,
-                                         Gtk.IconSize.DIALOG)
         self.__scan_progress_job = self.job_factories['progress_updater'].make(
             value_min=0.0, value_max=0.75,
             total_time=self.__config.scan_time['ocr'])
@@ -2928,7 +2928,7 @@ class MainWindow(object):
         self.set_progression(src, 0.0, None)
         self.set_mouse_cursor("Normal")
         if doc is not None:
-            self.show_doc(0, doc)  # will refresh the page list
+            self.show_doc(doc)  # will refresh the page list
             self.refresh_doc_list()
             if page is not None:
                 self.show_page(page)
@@ -3146,13 +3146,32 @@ class MainWindow(object):
         # Show boxes on the active pages
         pass
 
-    def show_doc(self, doc_idx, doc, force_refresh=False):
+    def __resize_page(self, drawer):
+        factor = self.get_zoom_factor(drawer.max_size)
+        drawer.set_size_ratio(factor)
+
+    def __update_page_position(self):
+        position = 0
+        for drawer in self.pages:
+            drawer.position = (0, position)
+            position += drawer.size[1]
+
+    def show_doc(self, doc, force_refresh=False):
         if (self.doc is not None and self.doc == doc and not force_refresh):
             return
         logger.info("Showing document %s" % doc)
         self.doc = doc
-        # we need the page list, but as an array we can modify
-        self.pages = [page for page in doc.pages]
+        self.img['canvas'].remove_all_drawers()
+        self.pages = []
+        for page in doc.pages:
+            drawer = PageDrawer((0, 0), page,
+                                self.job_factories['page_loader'],
+                                self.schedulers['main'])
+            self.pages.append(drawer)
+            self.img['canvas'].add_drawer(drawer)
+            self.__resize_page(drawer)
+        self.__update_page_position()
+        self.img['canvas'].upd_actors()
 
         is_new = doc.is_new
         can_edit = doc.can_edit
@@ -3225,7 +3244,7 @@ class MainWindow(object):
 
     def on_export_preview_done(self, img_size, pixbuf):
         self.export['estimated_size'].set_text(sizeof_fmt(img_size))
-        self.img['image'].set_from_pixbuf(pixbuf)
+        # TODO
 
     def __get_img_area_width(self):
         return self.img['viewport']['widget'].get_allocation().width
@@ -3233,7 +3252,7 @@ class MainWindow(object):
     def __get_img_area_height(self):
         return self.img['viewport']['widget'].get_allocation().height
 
-    def get_zoom_factor(self, pixbuf_width=None, pixbuf_height=None):
+    def get_zoom_factor(self, img_size):
         el_idx = self.lists['zoom_levels']['gui'].get_active()
         el_iter = self.lists['zoom_levels']['model'].get_iter(el_idx)
         factor = self.lists['zoom_levels']['model'].get_value(el_iter, 1)
@@ -3241,19 +3260,16 @@ class MainWindow(object):
         if factor > 0.0:
             return factor
         wanted_width = self.__get_img_area_width()
-        if pixbuf_width is None:
-            pixbuf_width = self.img['original_width']
-        width_factor = float(wanted_width) / pixbuf_width
-        if factor == -1.0 and pixbuf_height is not None:
+        width_factor = float(wanted_width) / img_size[0]
+        if factor == -1.0:
             wanted_height = self.__get_img_area_height()
-            factor = min(width_factor, float(wanted_height) / pixbuf_height)
+            factor = min(width_factor, float(wanted_height) / img_size[1])
             return factor
         else:
             return width_factor
 
     def refresh_export_preview(self):
-        self.img['image'].set_from_stock(Gtk.STOCK_EXECUTE,
-                                         Gtk.IconSize.DIALOG)
+        # TODO: Hide current export preview
         self.schedulers['main'].cancel_all(self.job_factories['export_previewer'])
         job = self.job_factories['export_previewer'].make(
             self.export['exporter'])
@@ -3280,11 +3296,10 @@ class MainWindow(object):
         if factor > 0.0:
             return
 
-        # TODO(Jflesch)
-        #self.schedulers['main'].cancel_all(self.job_factories['img_builder'])
-        #job = self.job_factories['img_builder'].make(self.page,
-        #                                             warn_user=False)
-        #self.schedulers['main'].schedule(job)
+        for page in self.pages:
+            self.__resize_page(page)
+        self.__update_page_position()
+        self.img['canvas'].upd_actors()
 
     def on_page_editing_img_edit_start_cb(self, job, page):
         self.set_mouse_cursor("Busy")

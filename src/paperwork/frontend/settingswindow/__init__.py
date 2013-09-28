@@ -561,8 +561,7 @@ class SettingsWindow(GObject.GObject):
         }
 
         img_scrollbars = widget_tree.get_object("scrolledwindowCalibration")
-        img_gui = Canvas(img_scrollbars.get_hadjustment(),
-                         img_scrollbars.get_vadjustment())
+        img_gui = Canvas(img_scrollbars)
         img_gui.set_visible(True)
 
         img_scrollbars.add(img_gui)

@@ -49,13 +49,13 @@ class SimpleDrawer(Drawer):
         self.visible = False
         self.actor = Clutter.Actor()  # must be filled in by child classes
 
-    def __get_size(self):
+    def _get_size(self):
         return self.actor.get_size()
 
-    def __set_size(self, size):
+    def _set_size(self, size):
         self.actor.set_size(size[0], size[1])
 
-    size = property(__get_size, __set_size)
+    size = property(_get_size, _set_size)
 
     def upd_actors(self, clutter_stage, offset, visible_area_size):
         size = self.size
@@ -74,11 +74,16 @@ class SimpleDrawer(Drawer):
         pos_y = self.position[1] - offset[1]
 
         if should_be_visible and not self.visible:
-            clutter_stage.add_child(self.actor)
+            self.show(clutter_stage)
         elif not should_be_visible and self.visible:
-            clutter_stage.remove_child(self.actor)
+            self.hide(clutter_stage)
         self.visible = should_be_visible
         self.actor.set_position(pos_x, pos_y)
+
+    def show(self, stage):
+        if not self.visible:
+            stage.add_child(self.actor)
+        self.visible = True
 
     def hide(self, stage):
         if self.visible:
@@ -97,8 +102,8 @@ class PillowImageDrawer(SimpleDrawer):
         self.actor.set_content_scaling_filters(Clutter.ScalingFilter.TRILINEAR,
                                                Clutter.ScalingFilter.LINEAR)
         self.actor.set_size(image.size[0], image.size[1])
-        self.actor.set_content(self.img)
         self.actor.set_position(position[0], position[1])
+        self.actor.set_content(self.img)
 
 
 class ScanDrawer(SimpleDrawer):

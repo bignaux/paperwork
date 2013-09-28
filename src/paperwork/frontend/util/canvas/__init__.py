@@ -27,6 +27,12 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
     The main canvas is where page(s) are drawn. This is the biggest and most
     important part of the main window.
     """
+
+    BACKGROUND_COLOR = Clutter.Color.get_static(
+        Clutter.StaticColor.YELLOW)
+    BACKGROUND_COLOR2 = Clutter.Color.get_static(
+        Clutter.StaticColor.GREEN)
+
     hadjustment = GObject.property(type=Gtk.Adjustment,
                                    default=Gtk.Adjustment(),
                                    flags=GObject.PARAM_READWRITE)
@@ -49,15 +55,15 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
                                           (GObject.TYPE_PYOBJECT,)),
     }
 
-    def __init__(self, hadj, vadj):
+    def __init__(self, scrollbars):
         GtkClutter.Embed.__init__(self)
 
-        self.size_forced = False
-        self.full_size = (1, 1)
-        self.visible_size = (1, 1)
+        hadj = scrollbars.get_hadjustment()
+        vadj = scrollbars.get_vadjustment()
 
-        self.get_stage().set_background_color(
-            Clutter.Color.get_static(Clutter.StaticColor.LIGHT_GRAY))
+        self.size_forced = False
+        self.full_size = (1000, 1000)
+        self.visible_size = (1000, 1000)
 
         self.drawers = PriorityQueue()
 
@@ -68,11 +74,13 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
         self.add_events(Gdk.EventMask.BUTTON_RELEASE_MASK)
         self.add_events(Gdk.EventMask.POINTER_MOTION_MASK)
+        scrollbars.connect("size-allocate", self.__on_viewport_size_allocate)
         self.connect("size-allocate", self.__on_size_allocate)
         self.connect("scroll-event", self.__on_scroll_event)
         self.connect("button-press-event", self.__on_button_pressed)
         self.connect("motion-notify-event", self.__on_motion)
         self.connect("button-release-event", self.__on_button_released)
+        self.get_stage().set_background_color(self.BACKGROUND_COLOR)
 
     def get_hadjustment(self):
         return self.hadjustment
@@ -108,6 +116,10 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         self.upd_adjustments()
         self.upd_actors()
 
+    def __on_viewport_size_allocate(self, scrollbars, size_allocate):
+        self.set_size_request(size_allocate.width, size_allocate.height)
+        self.get_stage().set_size(size_allocate.width, size_allocate.height)
+
     def recompute_size(self):
         if self.size_forced:
             return
@@ -120,17 +132,14 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
             if (full_y < y):
                 full_y = y
         new_size = (full_x, full_y)
-        if (new_size[0] != self.full_size[0]
-            or new_size[1] != self.full_size[1]):
+        if self.full_size != new_size:
             self.full_size = new_size
-            self.set_size_request(10000, 10000)
             self.upd_adjustments()
 
     def set_size(self, size):
         size = (int(size[0]), int(size[1]))
         self.full_size = size
         self.size_forced = True
-        self.set_size_request(10000, 10000)
         self.upd_adjustments()
         self.upd_actors()
 
@@ -163,6 +172,7 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         for drawer in self.drawers:
             drawer.upd_actors(self.get_stage(), (x, y),
                               self.visible_size)
+        self.get_stage().set_position(0, 0)
 
     def add_drawer(self, drawer):
         drawer.set_canvas(self)
