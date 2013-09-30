@@ -136,7 +136,6 @@ class PageDrawer(SimpleDrawer):
         self.content = None
 
     def hide(self, stage):
-        SimpleDrawer.hide(self, stage)
         self.content = None
         self.preloading = False
         if self.img_actor is not None:
@@ -146,6 +145,8 @@ class PageDrawer(SimpleDrawer):
             # (either the graphic card RAM or the CPU RAM)
             current_size = self.size
             self.actor.remove_child(self.img_actor)
+            self.img_actor.destroy()
             del(self.img_actor)
             self.img_actor = None
             self.size = current_size
+        SimpleDrawer.hide(self, stage)
