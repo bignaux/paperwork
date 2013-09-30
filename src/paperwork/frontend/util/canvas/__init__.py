@@ -89,7 +89,8 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         Gtk.Scrollable.set_hadjustment(self, h)
         self.set_property("hadjustment", h)
         h.set_lower(0.0)
-        h.set_upper(float(self.full_size[0]))
+        h.set_upper(max(float(self.visible_size[0]), float(self.full_size[0]),
+                        100.0))
         h.set_step_increment(10.0)
         h.set_page_increment(100.0)  # TODO(Jflesch)
         h.set_page_size(0.0)
@@ -102,7 +103,8 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         Gtk.Scrollable.set_vadjustment(self, v)
         self.set_property("vadjustment", v)
         v.set_lower(0.0)
-        v.set_upper(float(self.full_size[1]))
+        v.set_upper(max(float(self.visible_size[1]), float(self.full_size[1]),
+                        100.0))
         v.set_step_increment(10.0)
         v.set_page_increment(100.0)  # TODO(Jflesch)
         v.set_page_size(0.0)
@@ -117,8 +119,7 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         self.upd_actors()
 
     def __on_viewport_size_allocate(self, scrollbars, size_allocate):
-        self.set_size_request(size_allocate.width, size_allocate.height)
-        self.get_stage().set_size(size_allocate.width, size_allocate.height)
+        pass
 
     def recompute_size(self):
         if self.size_forced:
@@ -136,7 +137,7 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
             self.full_size = new_size
             self.upd_adjustments()
 
-    def set_size(self, size):
+    def force_size(self, size):
         size = (int(size[0]), int(size[1]))
         self.full_size = size
         self.size_forced = True
@@ -150,14 +151,17 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
     def upd_adjustments(self):
         val_h = float(self.hadjustment.get_value())
         val_v = float(self.vadjustment.get_value())
-        if val_h > self.full_size[0]:
-            val_h = self.full_size[0]
-        if val_v > self.full_size[1]:
-            val_v = self.full_size[1]
+        max_h = max(float(self.visible_size[0]),
+                    float(self.full_size[0]), 100.0)
+        max_v = max(float(self.visible_size[1]),
+                    float(self.full_size[1]), 100.0)
+        if val_h > max_h:
+            val_h = max_h
+        if val_v > max_v:
+            val_v = max_v
         self.hadjustment.set_lower(0.0)
-        self.hadjustment.set_upper(0.0)
-        self.hadjustment.set_upper(float(self.full_size[0]))
-        self.vadjustment.set_upper(float(self.full_size[1]))
+        self.hadjustment.set_upper(max_h)
+        self.vadjustment.set_upper(max_v)
         self.hadjustment.set_page_size(self.visible_size[0])
         self.vadjustment.set_page_size(self.visible_size[1])
         self.hadjustment.set_value(int(val_h))

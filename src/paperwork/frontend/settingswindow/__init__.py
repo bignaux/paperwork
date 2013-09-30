@@ -715,7 +715,7 @@ class SettingsWindow(GObject.GObject):
             value_min=0.0, value_max=1.0,
             total_time=self.__config.scan_time['calibration'])
         self.schedulers['progress'].schedule(self.__scan_progress_job)
-        self.calibration['image_gui'].set_size(
+        self.calibration['image_gui'].force_size(
             self.calibration['image_gui'].visible_size)
         self.calibration['image_gui'].remove_all_drawers()
         self.calibration['scan_drawer'] = None
