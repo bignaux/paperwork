@@ -74,8 +74,7 @@ class PageDrawer(SimpleDrawer):
         # we don't use the image content and we don't call
         # img.load() here --> PIL will (hopefully) only read the
         # header of the image
-        img = self.page.img
-        self.max_size = img.size
+        self.max_size = self.page.size
         self.size = self.max_size
 
         # self.actor is a parent actor containing the others
