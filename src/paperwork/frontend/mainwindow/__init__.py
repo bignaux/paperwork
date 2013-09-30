@@ -1344,14 +1344,14 @@ class ActionOpenPageNb(SimpleAction):
         self.__main_win.show_page(page)
 
 
-class ActionReloadDoc(SimpleAction):
+class ActionUpdPageSizes(SimpleAction):
     def __init__(self, main_window):
-        SimpleAction.__init__(self, "Reload current page")
+        SimpleAction.__init__(self, "Update page sizes")
         self.__main_win = main_window
 
     def do(self):
         SimpleAction.do(self)
-        self.__main_win.show_doc(self.__main_win.doc, force_refresh=True)
+        self.__main_win.update_page_sizes()
 
 
 class ActionRefreshBoxes(SimpleAction):
@@ -1981,28 +1981,6 @@ class ActionZoomChange(SimpleAction):
             zoom_list[current_idx][1])
 
 
-class ActionZoomSet(SimpleAction):
-    def __init__(self, main_window, value):
-        SimpleAction.__init__(self, ("Zoom = %f" % value))
-        self.__main_win = main_window
-        self.__value = value
-
-    def do(self):
-        SimpleAction.do(self)
-
-        zoom_liststore = self.__main_win.lists['zoom_levels']['model']
-
-        new_idx = -1
-        for zoom_idx in range(0, len(zoom_liststore)):
-            if (zoom_liststore[zoom_idx][1] == self.__value):
-                new_idx = zoom_idx
-                break
-        assert(new_idx >= 0)
-
-        self.__main_win.lists['zoom_levels']['gui'].set_active(new_idx)
-        self.__main_win.show_doc(self.__main_win.doc, force_refresh=True)
-
-
 class ActionEditDoc(SimpleAction):
     def __init__(self, main_window, config):
         SimpleAction.__init__(self, "Edit doc")
@@ -2142,6 +2120,8 @@ class ActionEditPage(SimpleAction):
 
 
 class MainWindow(object):
+    PAGE_MARGIN = 50
+
     def __init__(self, main_loop, config):
         GLib.set_application_name(_("Paperwork"))
         GLib.set_prgname("paperwork")
@@ -2590,7 +2570,7 @@ class MainWindow(object):
                 [
                     widget_tree.get_object("comboboxZoom"),
                 ],
-                ActionReloadDoc(self)
+                ActionUpdPageSizes(self)
             ),
             'search': (
                 [
@@ -3154,7 +3134,13 @@ class MainWindow(object):
         position = 0
         for drawer in self.pages:
             drawer.position = (0, position)
-            position += drawer.size[1]
+            position += drawer.size[1] + self.PAGE_MARGIN
+
+    def update_page_sizes(self):
+        for page in self.pages:
+            self.__resize_page(page)
+        self.__update_page_position()
+        self.img['canvas'].upd_actors()
 
     def show_doc(self, doc, force_refresh=False):
         if (self.doc is not None and self.doc == doc and not force_refresh):
@@ -3169,9 +3155,7 @@ class MainWindow(object):
                                 self.schedulers['main'])
             self.pages.append(drawer)
             self.img['canvas'].add_drawer(drawer)
-            self.__resize_page(drawer)
-        self.__update_page_position()
-        self.img['canvas'].upd_actors()
+        self.update_page_sizes()
 
         is_new = doc.is_new
         can_edit = doc.can_edit
