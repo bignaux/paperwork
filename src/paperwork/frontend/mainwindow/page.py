@@ -70,8 +70,6 @@ class PageDrawer(SimpleDrawer):
         self._scheduler = scheduler
         self.visible = False
 
-        self.img_actor = None
-
         # XXX(Jflesch):
         # we don't use the image content and we don't call
         # img.load() here --> PIL will (hopefully) only read the
@@ -84,20 +82,15 @@ class PageDrawer(SimpleDrawer):
         self.content = None
         self.preloading = False
         self.actor.set_background_color(self.BACKGROUND_COLOR)
+        self.actor.set_content_scaling_filters(Clutter.ScalingFilter.LINEAR,
+                                               Clutter.ScalingFilter.LINEAR)
 
     def show(self, stage):
         SimpleDrawer.show(self, stage)
-
-        assert(self.img_actor is None)
-        self.img_actor = Clutter.Actor()
-        self.img_actor.set_position(0, 0)
-        self.img_actor.set_content_scaling_filters(Clutter.ScalingFilter.TRILINEAR,
-                                                   Clutter.ScalingFilter.LINEAR)
-        self.img_actor.set_size(self.size[0], self.size[1])
         if self.content is not None:
-            self.img_actor.set_content(self.content)
+            self.actor.set_content(self.content)
+            del(self.content)
             self.content = None
-        self.actor.add_child(self.img_actor)
 
     def upd_actors(self, clutter_stage, offset, visible_area_size):
         size = self.size
@@ -118,35 +111,24 @@ class PageDrawer(SimpleDrawer):
         self.size = (int(ratio * self.max_size[0]),
                      int(ratio * self.max_size[1]))
 
-    def _set_size(self, size):
-        SimpleDrawer._set_size(self, size)
-        if self.img_actor is not None:
-            self.img_actor.set_size(self.size[0], self.size[1])
-
-    def _get_size(self):
-        return SimpleDrawer._get_size(self)
-
-    size = property(_get_size, _set_size)
-
     def on_page_loading_img(self, page, img):
-        self.content = image2clutter_img(img)
-        if self.img_actor is None:
+        if not self.preloading:
             return
-        self.img_actor.set_content(self.content)
-        self.content = None
+        self.content = image2clutter_img(img)
+        if self.visible:
+            self.actor.set_content(self.content)
+            del(self.content)
+            self.content = None
 
     def hide(self, stage):
-        self.content = None
+        if self.content:
+            del(self.content)
+            self.content = None
         self.preloading = False
-        if self.img_actor is not None:
-            # throw away the current actor and replace it
-            # with an empty one
-            # otherwise we may end up using too much RAM
-            # (either the graphic card RAM or the CPU RAM)
-            current_size = self.size
-            self.actor.remove_child(self.img_actor)
-            self.img_actor.destroy()
-            del(self.img_actor)
-            self.img_actor = None
-            self.size = current_size
+
+        # throw away the actor content and replace it
+        # with an empty one
+        # otherwise we may end up using too much RAM
+        # (either the graphic card RAM or the CPU RAM)
+        self.actor.set_content(None)
         SimpleDrawer.hide(self, stage)
