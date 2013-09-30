@@ -29,9 +29,7 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
     """
 
     BACKGROUND_COLOR = Clutter.Color.get_static(
-        Clutter.StaticColor.YELLOW)
-    BACKGROUND_COLOR2 = Clutter.Color.get_static(
-        Clutter.StaticColor.GREEN)
+        Clutter.StaticColor.LIGHT_GRAY)
 
     hadjustment = GObject.property(type=Gtk.Adjustment,
                                    default=Gtk.Adjustment(),
