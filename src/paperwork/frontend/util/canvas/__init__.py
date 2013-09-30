@@ -51,6 +51,7 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
                                          (GObject.TYPE_PYOBJECT,)),
         'absolute-button-release-event': (GObject.SignalFlags.RUN_LAST, None,
                                           (GObject.TYPE_PYOBJECT,)),
+        'window-moved': (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self, scrollbars):
@@ -176,6 +177,12 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
                               self.visible_size)
         self.get_stage().set_position(0, 0)
 
+    def __get_position(self):
+        return (int(self.hadjustment.get_value()),
+                int(self.vadjustment.get_value()))
+
+    position = property(__get_position)
+
     def add_drawer(self, drawer):
         drawer.set_canvas(self)
 
@@ -183,6 +190,19 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
         y = drawer.position[1] + drawer.size[1]
 
         self.drawers.add(drawer.layer, drawer)
+
+    def get_drawer_at(self, position):
+        (x, y) = position
+
+        for drawer in self.drawers:
+            pt_a = drawer.position
+            pt_b = (drawer.position[0] + drawer.size[0],
+                    drawer.position[1] + drawer.size[1])
+            if (x >= pt_a[0] and x < pt_b[0]
+                and y >= pt_a[1] and y < pt_b[1]):
+                return drawer
+
+        return None
 
     def remove_drawer(self, drawer):
         drawer.hide(self.get_stage())
@@ -228,6 +248,8 @@ class Canvas(GtkClutter.Embed, Gtk.Scrollable):
                 val = adj.get_upper() - 1
             if val != adj.get_value():
                 adj.set_value(val)
+
+        self.emit('window-moved')
 
     def __get_absolute_event(self, event):
         off_x = int(self.hadjustment.get_value())

@@ -2282,6 +2282,10 @@ class MainWindow(object):
         img_widget.set_visible(True)
         img_scrollbars.add(img_widget)
 
+        img_widget.connect(
+            'window-moved',
+            lambda x: GLib.idle_add(self.__on_img_window_moved))
+
         # TODO(Jflesch):
         # Listen to scrollbars events: call self.show_page()
         # accordingly so the active page is always
@@ -3193,21 +3197,8 @@ class MainWindow(object):
 
         self.show_page(page)
 
-    def show_page(self, page, force_refresh=False):
-        if (page.doc != self.doc or force_refresh):
-            self.show_doc(page.doc, force_refresh)
-
-        logging.info("Showing page %s" % page)
-
+    def __select_page(self, page):
         self.page = page
-
-        drawer = None
-        for _drawer in self.pages:
-            if _drawer.page == page:
-                drawer = _drawer
-                break
-        if drawer is not None:
-            self.img['canvas'].get_vadjustment().set_value(drawer.position[1])
 
         set_widget_state(self.need_page_widgets, True)
         set_widget_state(self.doc_edit_widgets, self.doc.can_edit)
@@ -3227,15 +3218,27 @@ class MainWindow(object):
         self.indicators['current_page'].set_text("%d" % (page.page_nb + 1))
         self.actions['set_current_page'][1].enabled = True
 
+    def show_page(self, page, force_refresh=False):
+        if (page.doc != self.doc or force_refresh):
+            self.show_doc(page.doc, force_refresh)
+
+        logging.info("Showing page %s" % page)
+
+        drawer = None
+        for _drawer in self.pages:
+            if _drawer.page == page:
+                drawer = _drawer
+                break
+        if drawer is not None:
+            self.img['canvas'].get_vadjustment().set_value(drawer.position[1])
+
+        self.__select_page(page)
+
         if self.export['exporter'] is not None:
             logging.info("Canceling export")
             self.actions['cancel_export'][1].do()
 
         self.export['dialog'].set_visible(False)
-
-        # TODO(Jflesch)
-        # Scroll the img canvas up or down to the selected page
-        # Note: only scroll if required !
 
     def on_export_preview_start(self):
         self.export['estimated_size'].set_text(_("Computing ..."))
@@ -3440,3 +3443,13 @@ class MainWindow(object):
         self.__show_all_boxes = value
 
     show_all_boxes = property(__get_show_all_boxes, __set_show_all_boxes)
+
+    def __on_img_window_moved(self):
+        pos = self.img['canvas'].position
+        size = self.img['canvas'].visible_size
+        pos = (0, pos[1] + (size[1] / 2))
+        drawer = self.img['canvas'].get_drawer_at(pos)
+        if drawer is None:
+            return
+        page = drawer.page
+        self.__select_page(page)
