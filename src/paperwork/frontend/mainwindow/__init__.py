@@ -1323,7 +1323,7 @@ class ActionMovePageIndex(SimpleAction):
         if page_idx < 0 or page_idx >= self.__main_win.doc.nb_pages:
             return
         page = self.__main_win.doc.pages[page_idx]
-        self.__main_win.show_page(page, force_refresh=True)
+        self.__main_win.show_page(page)
 
 
 class ActionOpenPageNb(SimpleAction):
@@ -1337,8 +1337,13 @@ class ActionOpenPageNb(SimpleAction):
     def do(self):
         SimpleAction.do(self)
         page_nb = self.__main_win.indicators['current_page'].get_text()
-        page_nb = int(page_nb) - 1
-        if page_nb < 0 or page_nb > self.__main_win.doc.nb_pages:
+        try:
+            page_nb = int(page_nb) - 1
+        except ValueError:
+            return
+        if page_nb >= self.__main_win.doc.nb_pages:
+            page_nb = self.__main_win.doc.nb_pages - 1
+        if page_nb < 0:
             return
         page = self.__main_win.doc.pages[page_nb]
         self.__main_win.show_page(page)
@@ -1352,6 +1357,7 @@ class ActionUpdPageSizes(SimpleAction):
     def do(self):
         SimpleAction.do(self)
         self.__main_win.update_page_sizes()
+        self.__main_win.show_page(self.__main_win.page)
 
 
 class ActionRefreshBoxes(SimpleAction):
@@ -3195,9 +3201,13 @@ class MainWindow(object):
 
         self.page = page
 
-        if self.export['exporter'] is not None:
-            logging.info("Canceling export")
-            self.actions['cancel_export'][1].do()
+        drawer = None
+        for _drawer in self.pages:
+            if _drawer.page == page:
+                drawer = _drawer
+                break
+        if drawer is not None:
+            self.img['canvas'].get_vadjustment().set_value(drawer.position[1])
 
         set_widget_state(self.need_page_widgets, True)
         set_widget_state(self.doc_edit_widgets, self.doc.can_edit)
@@ -3216,6 +3226,10 @@ class MainWindow(object):
         self.actions['set_current_page'][1].enabled = False
         self.indicators['current_page'].set_text("%d" % (page.page_nb + 1))
         self.actions['set_current_page'][1].enabled = True
+
+        if self.export['exporter'] is not None:
+            logging.info("Canceling export")
+            self.actions['cancel_export'][1].do()
 
         self.export['dialog'].set_visible(False)
 
@@ -3284,6 +3298,7 @@ class MainWindow(object):
             self.__resize_page(page)
         self.__update_page_position()
         self.img['canvas'].upd_actors()
+        self.show_page(self.page)
 
     def on_page_editing_img_edit_start_cb(self, job, page):
         self.set_mouse_cursor("Busy")
