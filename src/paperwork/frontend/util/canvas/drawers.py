@@ -57,18 +57,22 @@ class SimpleDrawer(Drawer):
 
     size = property(_get_size, _set_size)
 
-    def upd_actors(self, clutter_stage, offset, visible_area_size):
-        size = self.size
-
+    @staticmethod
+    def compute_visibility(offset, visible_area_size, position, size):
         should_be_visible = True
-        if (self.position[0] + size[0] < offset[0]):
+        if (position[0] + size[0] < offset[0]):
             should_be_visible = False
-        elif (offset[0] + visible_area_size[0] < self.position[0]):
+        elif (offset[0] + visible_area_size[0] < position[0]):
             should_be_visible = False
-        elif (self.position[1] + size[1] < offset[1]):
+        elif (position[1] + size[1] < offset[1]):
             should_be_visible = False
-        elif (offset[1] + visible_area_size[1] < self.position[1]):
+        elif (offset[1] + visible_area_size[1] < position[1]):
             should_be_visible = False
+        return should_be_visible
+
+    def upd_actors(self, clutter_stage, offset, visible_area_size):
+        should_be_visible = self.compute_visibility(offset, visible_area_size,
+                                                    self.position, self.size)
 
         pos_x = self.position[0] - offset[0]
         pos_y = self.position[1] - offset[1]

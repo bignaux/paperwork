@@ -58,8 +58,9 @@ class JobFactoryPageLoader(JobFactory):
 
 
 class PageDrawer(SimpleDrawer):
+    IMG_PRELOAD_MARGIN = 1000 # px
     BACKGROUND_COLOR = Clutter.Color.get_static(
-        Clutter.StaticColor.BLUE)
+        Clutter.StaticColor.GRAY)
 
     def __init__(self, position, page, job_factory, scheduler):
         SimpleDrawer.__init__(self, position)
@@ -80,6 +81,8 @@ class PageDrawer(SimpleDrawer):
         self.size = self.max_size
 
         # self.actor is a parent actor containing the others
+        self.content = None
+        self.preloading = False
         self.actor.set_background_color(self.BACKGROUND_COLOR)
 
     def show(self, stage):
@@ -91,10 +94,25 @@ class PageDrawer(SimpleDrawer):
         self.img_actor.set_content_scaling_filters(Clutter.ScalingFilter.TRILINEAR,
                                                    Clutter.ScalingFilter.LINEAR)
         self.img_actor.set_size(self.size[0], self.size[1])
+        if self.content is not None:
+            self.img_actor.set_content(self.content)
+            self.content = None
         self.actor.add_child(self.img_actor)
 
-        job = self._job_factory.make(self, self.page)
-        self._scheduler.schedule(job)
+    def upd_actors(self, clutter_stage, offset, visible_area_size):
+        size = self.size
+        large_pos = (self.position[0] - (self.IMG_PRELOAD_MARGIN),
+                     self.position[1] - (self.IMG_PRELOAD_MARGIN))
+        large_size = (size[0] + (2 * self.IMG_PRELOAD_MARGIN),
+                      size[1] + (2 * self.IMG_PRELOAD_MARGIN))
+        if self.compute_visibility(offset, visible_area_size, large_pos,
+                                   large_size) and not self.preloading:
+            # preload the content
+            self.preloading = True
+            job = self._job_factory.make(self, self.page)
+            self._scheduler.schedule(job)
+
+        SimpleDrawer.upd_actors(self, clutter_stage, offset, visible_area_size)
 
     def set_size_ratio(self, ratio):
         self.size = (int(ratio * self.max_size[0]),
@@ -111,12 +129,16 @@ class PageDrawer(SimpleDrawer):
     size = property(_get_size, _set_size)
 
     def on_page_loading_img(self, page, img):
+        self.content = image2clutter_img(img)
         if self.img_actor is None:
             return
-        self.img_actor.set_content(image2clutter_img(img))
+        self.img_actor.set_content(self.content)
+        self.content = None
 
     def hide(self, stage):
         SimpleDrawer.hide(self, stage)
+        self.content = None
+        self.preloading = False
         if self.img_actor is not None:
             # throw away the current actor and replace it
             # with an empty one
